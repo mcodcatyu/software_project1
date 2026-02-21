@@ -1,0 +1,16 @@
+.venv/
+venv/
+env/
+bin/
+lib/
+share/
+pyvenv.cfg
+__pycache__/
+.json
+.DS_Store
+Thumbs.db
+*.csv
+*.gif
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+*.txt
