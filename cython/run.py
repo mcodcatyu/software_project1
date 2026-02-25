@@ -1,0 +1,12 @@
+import sys
+import LLtest_4
+if __name__ == '__main__':
+    if int(len(sys.argv)) == 5:
+        PROGNAME = sys.argv[0]
+        ITERATIONS = int(sys.argv[1])
+        SIZE = int(sys.argv[2])
+        TEMPERATURE = float(sys.argv[3])
+        PLOTFLAG = int(sys.argv[4])
+        LLtest_4.main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG)
+    else:
+        print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))
