@@ -27,6 +27,7 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from numba import njit
 
 def initdat(nmax):
     """
@@ -82,25 +83,12 @@ def plotdat(arr,pflag,nmax):
         norm = plt.Normalize(vmin=0, vmax=1)
     quiveropts = dict(headlength=0,pivot='middle',headwidth=1,scale=1.1*nmax) # 分子的火財棒圖樣設定
     fig, ax = plt.subplots()
-    q = ax.quiver(x, y, u, v, cols,norm=norm, **quiveropts) 
+    q = ax.quiver(x, y, u, v, cols,norm=norm, **quiveropts) # col被當作顏色使用了
     ax.set_aspect('equal')
-    plt.show()
+    plt.savefig(f'my_lattice_plot_{nmax}.png')
+    #plt.show()
 
-#
 def energy_calculation(arr):
-    """
-    Arguments:
-	  arr (float(nmax,nmax)) = array that contains lattice data;
-    Description:
-      Function that computes the energy of a single cell of the
-      lattice taking into account periodic boundaries.  Working with
-      reduced energy (U/epsilon), equivalent to setting epsilon=1 in
-      equation (1) in the project notes.
-      This function uses vectorization to accelerate code
-      (for def plotdat -> cols= energy_calculation(arr) part )
-	Returns:
-	  total_en (float) = sum energy of cell.
-    """
     en = 0.0
     neighbours = {
         "up" : np.roll(arr, shift=1, axis=0),
@@ -152,6 +140,8 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
         print("   {:05d}    {:6.4f} {:12.4f}  {:6.4f} ".format(i,ratio[i],energy[i],order[i]),file=FileOut)
     FileOut.close()
 
+
+@njit
 def one_energy(arr,ix,iy,nmax):
     """
     Arguments:
@@ -208,7 +198,6 @@ def get_order(arr,nmax):
       Function to calculate the order parameter of a lattice
       using the Q tensor approach, as in equation (3) of the
       project notes.  Function returns S_lattice = max(eigenvalues(Q_ab)).
-      (This function uses vectorization to accelerate code)
 	Returns:
 	  max(eigenvalues(Qab)) (float) = order parameter for lattice.
     """
@@ -224,7 +213,7 @@ def get_order(arr,nmax):
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
     return eigenvalues.max() 
 
-
+@njit
 def MC_step(arr,Ts,nmax): 
     """
     Arguments:
@@ -248,9 +237,9 @@ def MC_step(arr,Ts,nmax):
     # with temperature.
     scale=0.1+Ts
     accept = 0
-    xran = np.random.randint(0,high=nmax, size=(nmax,nmax))
-    yran = np.random.randint(0,high=nmax, size=(nmax,nmax))
-    aran = np.random.normal(scale=scale, size=(nmax,nmax))
+    xran = np.random.randint(0,nmax, (nmax,nmax))
+    yran = np.random.randint(0,nmax, (nmax,nmax))
+    aran = np.random.normal(0, 0.1+Ts, (nmax,nmax))
     for i in range(nmax):
         for j in range(nmax):
             ix = xran[i,j]
