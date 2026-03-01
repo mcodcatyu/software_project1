@@ -1,9 +1,9 @@
-from setuptools import setup
+from distutils.core import setup
 from Cython.Build import cythonize
 import numpy 
 
 setup(
-    ext_modules = cythonize("LLtest_4.pyx", annotate=True),
+    ext_modules = cythonize("LLcython.pyx", annotate=True),
     include_dirs = [numpy.get_include()]
    
 )

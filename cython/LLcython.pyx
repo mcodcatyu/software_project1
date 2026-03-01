@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import sys
 import datetime
 
-cpdef initdat(int nmax):# 1號
+cdef initdat(int nmax):
     """
       nmax (int) = size of lattice to create (nmax,nmax).
     Description:
@@ -20,7 +20,7 @@ cpdef initdat(int nmax):# 1號
     cdef double[:, :] arr = np.random.random_sample((nmax,nmax))*2.0*np.pi  
     return arr
 
-def plotdat(arr,pflag,nmax):
+def plotdat(arr,pflag,nmax): 
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -45,13 +45,12 @@ def plotdat(arr,pflag,nmax):
     v = np.sin(arr) 
     x = np.arange(nmax) 
     y = np.arange(nmax)
-    cols = np.zeros((nmax,nmax))
+    cols = np.zeros((nmax,nmax)) 
     if pflag==1: # colour the arrows according to energy
         mpl.rc('image', cmap='rainbow')
-        for i in range(nmax): 
+        for i in range(nmax):
             for j in range(nmax): 
                 cols[i,j] = one_energy(arr,i,j,nmax)
-        
         norm = plt.Normalize(cols.min(), cols.max())
     elif pflag==2: # colour the arrows according to angle
         mpl.rc('image', cmap='hsv')
@@ -63,7 +62,7 @@ def plotdat(arr,pflag,nmax):
         norm = plt.Normalize(vmin=0, vmax=1)
     quiveropts = dict(headlength=0,pivot='middle',headwidth=1,scale=1.1*nmax) 
     fig, ax = plt.subplots()
-    q = ax.quiver(x, y, u, v, cols,norm=norm, **quiveropts)
+    q = ax.quiver(x, y, u, v, cols,norm=norm, **quiveropts) 
     ax.set_aspect('equal')
     plt.show()
     #plt.savefig(f'my_lattice_plot_{nmax}.png')
@@ -105,7 +104,7 @@ def get_order(arr,nmax):
     # put it in a (3,i,j) array.
     #
     lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax) 
-
+  
     for a in range(3):
         for b in range(3):
             for i in range(nmax):
@@ -113,7 +112,7 @@ def get_order(arr,nmax):
                     Qab[a,b] += 3*lab[a,i,j]*lab[b,i,j] - delta[a,b]
     Qab = Qab/(2*nmax*nmax)
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
-    return eigenvalues.max()
+    return eigenvalues.max() 
     
 def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
     """
@@ -167,15 +166,16 @@ cdef double one_energy(double[:,:] arr,int ix,int iy,int nmax):
 	Returns:
 	  en (float) = reduced energy of cell.
     """
-    cdef double en = 0.0
-    cdef int ixp = (ix+1)%nmax # These are the coordinates
-    cdef int ixm = (ix-1)%nmax # of the neighbours
-    cdef int iyp = (iy+1)%nmax # with wraparound
-    cdef int iym = (iy-1)%nmax # 
-    cdef double ang
-    cdef double cos_value
-    cdef double point = arr[ix,iy]
-#
+    cdef :
+        double en = 0.0
+        int ixp = (ix+1)%nmax # These are the coordinates
+        int ixm = (ix-1)%nmax # of the neighbours
+        int iyp = (iy+1)%nmax # with wraparound
+        int iym = (iy-1)%nmax 
+        double ang
+        double cos_value
+        double point = arr[ix,iy]
+    #
 # Add together the 4 neighbour contributions
 # to the energy
 
@@ -214,13 +214,15 @@ cdef double MC_step(double[:,:]arr,float Ts,int nmax):
     # using lots of individual calls.  "scale" sets the width
     # of the distribution for the angle changes - increases
     # with temperature.
-    cdef double scale=0.1+Ts
-    cdef double accept = 0
-    cdef int[:,:] xran = np.random.randint(0,high=nmax, size=(nmax,nmax), dtype=np.int32)
-    cdef int[:,:] yran = np.random.randint(0,high=nmax, size=(nmax,nmax), dtype=np.int32)
-    cdef double[:,:] aran = np.random.normal(scale=scale, size=(nmax,nmax))
-    cdef int i, j, ix, iy
-    cdef double ang, boltz, en0, en1
+    cdef :
+        double scale=0.1+Ts
+        double accept = 0
+        int[:,:] xran = np.random.randint(0,high=nmax, size=(nmax,nmax), dtype=np.int32)
+        int[:,:] yran = np.random.randint(0,high=nmax, size=(nmax,nmax), dtype=np.int32)
+        double[:,:] aran = np.random.normal(scale=scale, size=(nmax,nmax))
+        int i, j, ix, iy
+        double ang, boltz, en0, en1
+
     for i in range(nmax):
         for j in range(nmax):
             ix = xran[i,j]
@@ -241,6 +243,7 @@ cdef double MC_step(double[:,:]arr,float Ts,int nmax):
                 else:
                     arr[ix,iy] -= ang 
     return accept/(nmax*nmax)
+
 cpdef main(str program, int nsteps, int nmax, float temp, int pflag): 
     """
     Arguments:
@@ -254,20 +257,19 @@ cpdef main(str program, int nsteps, int nmax, float temp, int pflag):
     Returns:
       NULL
     """
-    cdef double initial, final, runtime
-    # Create and initialise lattice
-    cdef double[:,:]lattice = initdat(nmax)
-    # Plot initial frame of lattice
+    cdef :
+        double initial, final, runtime
+        double[:,:]lattice = initdat(nmax)
+        double[:]energy = np.zeros(nsteps+1,dtype=np.float64)
+        double[:]ratio = np.zeros(nsteps+1,dtype=np.float64)
+        double[:]order = np.zeros(nsteps+1,dtype=np.float64)
+
     plotdat(lattice,pflag,nmax)
-    # Create arrays to store energy, acceptance ratio and order parameter
-    cdef double[:]energy = np.zeros(nsteps+1,dtype=np.float64)
-    cdef double[:]ratio = np.zeros(nsteps+1,dtype=np.float64)
-    cdef double[:]order = np.zeros(nsteps+1,dtype=np.float64)
     # Set initial values in arrays 
     energy[0] = all_energy(lattice,nmax)
     ratio[0] = 0.5 # ideal value
     order[0] = get_order(lattice,nmax)
-   
+  
     # Begin doing and timing some MC steps.
     initial = time.time()
     for it in range(1,nsteps+1):
