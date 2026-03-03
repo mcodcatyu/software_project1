@@ -4,6 +4,7 @@ env/
 bin/
 lib/
 share/
+build/
 pyvenv.cfg
 __pycache__/
 .json
