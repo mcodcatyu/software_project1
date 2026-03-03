@@ -13,7 +13,7 @@ where:
   SIZE = side length of square lattice
   TEMPERATURE = reduced temperature in range 0.0 - 2.0.
   PLOTFLAG = 0 for no plot, 1 for energy plot and 2 for angle plot.
-
+  
 The initial configuration is set at random. The boundaries
 are periodic throughout the simulation.  During the
 time-stepping, an array containing two domains is used; these
@@ -21,19 +21,17 @@ domains alternate between old data and new data.
 
 SH 16-Oct-23
 """
-
 import sys
 import time
 import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from mpi4py import MPI
-import pandas as pd
-#===========================mpi4py===================
+from numba import njit, prange
+#=======================================================================
+@njit
 def initdat(nmax):
     """
-    Arguments:
       nmax (int) = size of lattice to create (nmax,nmax).
     Description:
       Function to create and initialise the main data array that holds
@@ -42,7 +40,7 @@ def initdat(nmax):
 	Returns:
 	  arr (float(nmax,nmax)) = array to hold lattice.
     """
-    arr = np.random.random_sample((nmax,nmax))*2.0*np.pi
+    arr = np.random.random_sample((nmax,nmax))*2.0*np.pi  
     return arr
 #=======================================================================
 def plotdat(arr,pflag,nmax): 
@@ -67,30 +65,31 @@ def plotdat(arr,pflag,nmax):
     if pflag==0:
         return
     u = np.cos(arr)
-    v = np.sin(arr)
+    v = np.sin(arr) 
     x = np.arange(nmax)
-    y = np.arange(nmax)
+    y = np.arange(nmax) 
     cols = np.zeros((nmax,nmax))
     if pflag==1: # colour the arrows according to energy
         mpl.rc('image', cmap='rainbow')
-        for i in range(nmax):
-            for j in range(nmax):
-                cols[i,j] = one_energy(arr,i,j,nmax)
+        cols= energy_calculation(arr, nmax) # obtain an array including all particle energy(nmax*nmax)
         norm = plt.Normalize(cols.min(), cols.max())
     elif pflag==2: # colour the arrows according to angle
         mpl.rc('image', cmap='hsv')
-        cols = arr%np.pi
-        norm = plt.Normalize(vmin=0, vmax=np.pi)
+        cols = arr%np.pi 
+        norm = plt.Normalize(vmin=0, vmax=np.pi) 
     else:
         mpl.rc('image', cmap='gist_gray')
-        cols = np.zeros_like(arr)
+        cols = np.zeros_like(arr) # create a sane number all zero arry
         norm = plt.Normalize(vmin=0, vmax=1)
-    quiveropts = dict(headlength=0,pivot='middle',headwidth=1,scale=1.1*nmax)
+    quiveropts = dict(headlength=0,pivot='middle',headwidth=1,scale=1.1*nmax) # 分子的火財棒圖樣設定
     fig, ax = plt.subplots()
-    q = ax.quiver(x, y, u, v, cols,norm=norm, **quiveropts)
+    q = ax.quiver(x, y, u, v, cols,norm=norm, **quiveropts) 
     ax.set_aspect('equal')
+    current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
+    plt.savefig(f'my_lattice_plot_{current_datetime}.png')
     #plt.show()
-    plt.savefig(f'my_lattice_plot_{nmax}.png')
+#=======================================================================
+
 #=======================================================================
 def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
     """
@@ -129,42 +128,46 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
         print("   {:05d}    {:6.4f} {:12.4f}  {:6.4f} ".format(i,ratio[i],energy[i],order[i]),file=FileOut)
     FileOut.close()
 #=======================================================================
-def one_energy(arr,ix,iy,nmax):
-
+@njit(parallel = True)
+def energy_calculation(arr,nmax):
+    x, y = arr.shape
+    total_en = np.zeros((x,y))
     en = 0.0
-    ixp = (ix+1)%nmax # These are the coordinates
-    ixm = (ix-1)%nmax # of the neighbours
-    iyp = (iy+1)%nmax # with wraparound
-    iym = (iy-1)%nmax # 
-
-    ang = arr[ix,iy]-arr[ixp,iy]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    ang = arr[ix,iy]-arr[ixm,iy]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    ang = arr[ix,iy]-arr[ix,iyp]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    ang = arr[ix,iy]-arr[ix,iym]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    return en
+    for i in prange(x):
+      for j in range(y):
+        up = arr[(i+1)%nmax ,j]
+        down = arr[(i-1)%nmax,j]
+        left = arr[i,(j+1)%nmax]
+        right = arr[i,(j-1)%nmax]
+        en = 0
+        for neighbour in (up, down, left, right):
+          en += 0.5*(1.0 - 3.0*np.cos(arr[i,j]- neighbour)**2)
+        total_en[i,j] = en   
+    return total_en
 #=======================================================================
-def all_energy(arr,nmax): 
 
-    enall = 0.0
-    for i in range(nmax):
-        for j in range(nmax):
-            enall += one_energy(arr,i,j,nmax)
-    return enall
 #=======================================================================
+@njit
 def get_order(arr,nmax):
-
+    """
+    Arguments:
+	  arr (float(nmax,nmax)) = array that contains lattice data;
+      nmax (int) = side length of square lattice.
+    Description:
+      Function to calculate the order parameter of a lattice
+      using the Q tensor approach, as in equation (3) of the
+      project notes.  Function returns S_lattice = max(eigenvalues(Q_ab)).
+	Returns:
+	  max(eigenvalues(Qab)) (float) = order parameter for lattice.
+    """
     Qab = np.zeros((3,3))
     delta = np.eye(3,3)
     #
     # Generate a 3D unit vector for each cell (i,j) and
     # put it in a (3,i,j) array.
     #
-    lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax) # x, y, z在這邊計算了
-    # z 都設0所以只跑a,b 兩個
+    lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax) #calculate x, y, z
+
     for a in range(3):
         for b in range(3):
             for i in range(nmax):
@@ -172,130 +175,123 @@ def get_order(arr,nmax):
                     Qab[a,b] += 3*lab[a,i,j]*lab[b,i,j] - delta[a,b]
     Qab = Qab/(2*nmax*nmax)
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
-    return eigenvalues.max() # 取最大eigenvalues
+    return eigenvalues.max() # obtain largest eigenvalues
 #=======================================================================
 def MC_step(arr,Ts,nmax): 
-
+    """
+    Arguments:
+	  arr (float(nmax,nmax)) = array that contains lattice data;
+	  Ts (float) = reduced temperature (range 0 to 2);
+      nmax (int) = side length of square lattice.
+    Description:
+      Function to perform one MC step, which consists of an average
+      of 1 attempted change per lattice site.  Working with reduced
+      temperature Ts = kT/epsilon.  Function returns the acceptance
+      ratio for information.  This is the fraction of attempted changes
+      that are successful.  Generally aim to keep this around 0.5 for
+      efficient simulation.
+	Returns:
+	  accept/(nmax**2) (float) = acceptance ratio for current MCS.
+    """
     #
     # Pre-compute some random numbers.  This is faster than
     # using lots of individual calls.  "scale" sets the width
     # of the distribution for the angle changes - increases
     # with temperature.
     scale=0.1+Ts
-    accept = 0
-    xran = np.random.randint(0,high=nmax, size=(nmax,nmax))
-    yran = np.random.randint(0,high=nmax, size=(nmax,nmax))
+    total_accept = 0
     aran = np.random.normal(scale=scale, size=(nmax,nmax))
-    for i in range(nmax):
-        for j in range(nmax):
-            ix = xran[i,j]
-            iy = yran[i,j]
-            ang = aran[i,j]
-            en0 = one_energy(arr,ix,iy,nmax)
-            arr[ix,iy] += ang
-            en1 = one_energy(arr,ix,iy,nmax) # 轉換角度後的en
-            if en1<=en0:
-                accept += 1
-            else:
+    total_accept = checkerboard(arr, aran, Ts, nmax, 0) +  checkerboard(arr, aran, Ts, nmax, 1)
+
+    return total_accept/(nmax*nmax)
+
+@njit(parallel = True)
+def checkerboard(arr, aran, Ts, nmax, offset):
+    accept = 0
+    for i in prange(nmax):
+        start_j = (i+offset)%2
+        for j in range (start_j, nmax, 2):
+
+          ixp = (i+1)%nmax # These are the coordinates
+          ixm = (i-1)%nmax # of the neighbours
+          iyp = (j+1)%nmax # with wraparound
+          iym = (j-1)%nmax # 
+          up = arr[ixp,j]
+          down = arr[ixm,j]
+          left = arr[i,iyp]
+          right = arr[i,iym]
+          en0 = 0
+          for neighbour in (up, down, left, right):
+              en0 += 0.5*(1.0 - 3.0*np.cos(arr[i,j]- neighbour)**2)
+          arr[i,j] = arr[i,j] + aran[i,j]
+
+          en1 = 0
+          for neighbour in (up, down, left, right):
+            en1 += 0.5*(1.0 - 3.0*np.cos(arr[i,j]- neighbour)**2)
+           
+          if en1<=en0:
+            accept += 1
+          else:
             # Now apply the Monte Carlo test - compare
             # exp( -(E_new - E_old) / T* ) >= rand(0,1)
-                boltz = np.exp( -(en1 - en0) / Ts )
-
-                if boltz >= np.random.uniform(0.0,1.0):
-                    accept += 1
-                else:
-                    arr[ix,iy] -= ang
-    return accept/(nmax*nmax)
+            # boltz = np.exp( -(en1 - en0) / Ts )
+            boltz = np.exp( -(en1 - en0) / Ts )
+            if boltz >= np.random.uniform(0.0,1.0):
+                accept += 1
+            else:
+                arr[i,j] -= aran[i,j]
+    return accept
 #=======================================================================
 def main(program, nsteps, nmax, temp, pflag): 
-
+    """
+    Arguments:
+	  program (string) = the name of the program;
+	  nsteps (int) = number of Monte Carlo steps (MCS) to perform;
+      nmax (int) = side length of square lattice to simulate;
+	  temp (float) = reduced temperature (range 0 to 2);
+	  pflag (int) = a flag to control plotting.
+    Description:
+      This is the main function running the Lebwohl-Lasher simulation.
+    Returns:
+      NULL
+    """
+    # Create and initialise lattice
     lattice = initdat(nmax)
     # Plot initial frame of lattice
     plotdat(lattice,pflag,nmax)
-
+    # Create arrays to store energy, acceptance ratio and order parameter
     energy = np.zeros(nsteps+1,dtype=float)
     ratio = np.zeros(nsteps+1,dtype=float)
     order = np.zeros(nsteps+1,dtype=float)
-    # Set initial values in arrays
-    energy[0] = all_energy(lattice,nmax)
+    # Set initial values in arrays 
+    energy[0] = np.sum(energy_calculation(lattice, nmax))
     ratio[0] = 0.5 # ideal value
     order[0] = get_order(lattice,nmax)
-
     # Begin doing and timing some MC steps.
     initial = time.time()
     for it in range(1,nsteps+1):
         ratio[it] = MC_step(lattice,temp,nmax)
-        energy[it] = all_energy(lattice,nmax)
+        energy[it] = np.sum(energy_calculation(lattice, nmax))
         order[it] = get_order(lattice,nmax)
     final = time.time()
     runtime = final-initial
-
+    
     # Final outputs
     print("{}: Size: {:d}, Steps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Time: {:8.6f} s".format(program, nmax,nsteps,temp,order[nsteps-1],runtime))
-    final_pkg ={
-        'lattice':lattice,
-        'nsteps':nsteps,
-        'temp':temp,
-        'runtime':runtime,
-        'ratio':ratio,
-        'energy':energy,
-        'order':order,
-        'nmax':nmax,
-        'pflag':pflag
-    }
-    return final_pkg
-    #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
-    #return lattice,nsteps,temp,runtime,ratio,energy,order,nmax
-    #plotdat(lattice,pflag,nmax)
-#=======================================================================
-# Main part of program, getting command line arguments and calling
-# main simulation function.
-#
-if __name__ == '__main__':
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
+    # Plot final frame of lattice and generate output file
+    savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
+    plotdat(lattice,pflag,nmax)
+    return np.mean(energy), np.mean(order)
 
+
+#=======================================================================
+if __name__ == '__main__':
     if int(len(sys.argv)) == 5:
         PROGNAME = sys.argv[0]
         ITERATIONS = int(sys.argv[1])
         SIZE = int(sys.argv[2])
         TEMPERATURE = float(sys.argv[3])
         PLOTFLAG = int(sys.argv[4])
-
-
-        temps = np.linspace(0.1, TEMPERATURE, size)
-        local_temp = temps[rank]
-
-
-
-        final_pkg = main(PROGNAME, ITERATIONS, SIZE, local_temp, PLOTFLAG)
-        all_results = comm.gather(final_pkg, root=0)
-
-
-        if rank == 0:
-            summary = []
-            for i, res in enumerate(all_results):
-                summary.append({
-                    'Rank':i,
-                    'Temperature': res['temp'],
-                    'Average_order': np.mean(res['order']),
-                    'Average_energy':np.mean(res['energy']),
-                    'Ratio': res['ratio'][-1],
-                    'Runtime':res['runtime']
-                })
-
-                df_summary = pd.DataFrame(summary)
-                df_summary = df_summary.sort_values(by='Temperature')
-
-                df_summary.to_csv('simulation_summary(temp).csv', index=False)
-                plt.subplots(figsize=(8,6))
-                plt.plot(df_summary['Temperature'], df_summary['Average_order'], '-.')
-                plt.title('Orders vs. Temperature')
-                plt.xlabel('Temperature (T*)')
-                plt.ylabel('Order Parameter (S)')
-                plt.grid(True)
-                plt.savefig('order_vs_temp.png')
-else:
-    print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))
-#=======================================================================
+        main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG)
+    else:
+        print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))

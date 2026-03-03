@@ -1,3 +1,10 @@
+#=======================================================================
+"""
+This file parallelize the task, each rank runs their simulation independently, and average 
+the value to obtain a more robust estimate result.   
+"""
+#======================================================================= 
+
 """
 Basic Python Lebwohl-Lasher code.  Based on the paper 
 P.A. Lebwohl and G. Lasher, Phys. Rev. A, 6, 426-429 (1972).
@@ -292,7 +299,6 @@ if __name__ == '__main__':
 
                 print(f"The Average energy is :{avg_energy}, The Average order is: {avg_order}")
         
-
 else:
     print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))
 #=======================================================================

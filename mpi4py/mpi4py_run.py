@@ -1,3 +1,10 @@
+
+#=======================================================================
+"""
+This file implement a parallel approach using mpi4py, where each core runs an independent simulation 
+and shows the rank number which has optimal results from all ranks.  
+"""
+#======================================================================= 
 """
 Basic Python Lebwohl-Lasher code.  Based on the paper 
 P.A. Lebwohl and G. Lasher, Phys. Rev. A, 6, 426-429 (1972).
@@ -21,6 +28,7 @@ domains alternate between old data and new data.
 
 SH 16-Oct-23
 """
+
 
 import sys
 import time

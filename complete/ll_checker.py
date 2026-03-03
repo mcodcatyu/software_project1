@@ -1,3 +1,8 @@
+#=======================================================================
+"""
+This is the original code file
+"""
+#=======================================================================
 """
 Basic Python Lebwohl-Lasher code.  Based on the paper 
 P.A. Lebwohl and G. Lasher, Phys. Rev. A, 6, 426-429 (1972).

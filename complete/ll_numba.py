@@ -201,7 +201,7 @@ def get_order(arr,nmax):
     # put it in a (3,i,j) array.
     #
     lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax) # x, y, z在這邊計算了
-    # z 都設0所以只跑a,b 兩個
+
     for a in range(3):
         for b in range(3):
             for i in range(nmax):
@@ -209,7 +209,7 @@ def get_order(arr,nmax):
                     Qab[a,b] += 3*lab[a,i,j]*lab[b,i,j] - delta[a,b]
     Qab = Qab/(2*nmax*nmax)
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
-    return eigenvalues.max() # 取最大eigenvalues
+    return eigenvalues.max() 
 #=======================================================================
 @njit
 def MC_step(arr,Ts,nmax): 
@@ -315,7 +315,3 @@ if __name__ == '__main__':
     else:
         print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))
 #=======================================================================
-#lattice 數量-> 建立晶格數(晶格數 = 分子數)->計算每個分子的方向(想像士兵拿著長槍 槍的方向就是這個xyz*這邊z是作為0的), 2d位置是士兵站的位置) 
-# -> 計算和鄰居之間互動的能量(自身能量)->  monte calo n次數=改變全部分子角度n次(即1次 monte carlo 代表全部分子一次都轉一次(2500))->
-# 每一次的monte carlo 都是把每個分子轉一下，發現是我們要的結果(能量變低) 就留著 繼續轉下一個直到最後一個，然後每次轉完一次monte carlo就會有一個s值
-#-> 最終會獲得50個s值->從s值可以判斷(愈接近1愈好) -> 50個s值可以讓我們檢視結果是愈來愈好還是不好

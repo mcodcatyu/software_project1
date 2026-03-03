@@ -1,3 +1,10 @@
+#=======================================================================
+"""
+This file parallelize the temperature  using mpi4py, where each rank runs an independent simulation with different temeperature,
+and produce the order parameter versus temperature plot as a png file 
+"""
+#======================================================================= 
+
 """
 Basic Python Lebwohl-Lasher code.  Based on the paper 
 P.A. Lebwohl and G. Lasher, Phys. Rev. A, 6, 426-429 (1972).
@@ -13,7 +20,7 @@ where:
   SIZE = side length of square lattice
   TEMPERATURE = reduced temperature in range 0.0 - 2.0.
   PLOTFLAG = 0 for no plot, 1 for energy plot and 2 for angle plot.
-  
+
 The initial configuration is set at random. The boundaries
 are periodic throughout the simulation.  During the
 time-stepping, an array containing two domains is used; these
@@ -29,6 +36,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from mpi4py import MPI
+import pandas as pd
 #===========================mpi4py===================
 def initdat(nmax):
     """
@@ -88,6 +96,8 @@ def plotdat(arr,pflag,nmax):
     fig, ax = plt.subplots()
     q = ax.quiver(x, y, u, v, cols,norm=norm, **quiveropts)
     ax.set_aspect('equal')
+    current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
+    plt.savefig(f'my_lattice_plot_{current_datetime}.png')
     #plt.show()
     plt.savefig(f'my_lattice_plot_{nmax}.png')
 #=======================================================================
@@ -129,29 +139,13 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
     FileOut.close()
 #=======================================================================
 def one_energy(arr,ix,iy,nmax):
-    """
-    Arguments:
-	  arr (float(nmax,nmax)) = array that contains lattice data;
-	  ix (int) = x lattice coordinate of cell;
-	  iy (int) = y lattice coordinate of cell;
-      nmax (int) = side length of square lattice.
-    Description:
-      Function that computes the energy of a single cell of the
-      lattice taking into account periodic boundaries.  Working with
-      reduced energy (U/epsilon), equivalent to setting epsilon=1 in
-      equation (1) in the project notes.
-	Returns:
-	  en (float) = reduced energy of cell.
-    """
+
     en = 0.0
     ixp = (ix+1)%nmax # These are the coordinates
     ixm = (ix-1)%nmax # of the neighbours
     iyp = (iy+1)%nmax # with wraparound
     iym = (iy-1)%nmax # 
-#
-# Add together the 4 neighbour contributions
-# to the energy
-# 
+
     ang = arr[ix,iy]-arr[ixp,iy]
     en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
     ang = arr[ix,iy]-arr[ixm,iy]
@@ -163,16 +157,7 @@ def one_energy(arr,ix,iy,nmax):
     return en
 #=======================================================================
 def all_energy(arr,nmax): 
-    """
-    Arguments:
-	  arr (float(nmax,nmax)) = array that contains lattice data;
-      nmax (int) = side length of square lattice.
-    Description:
-      Function to compute the energy of the entire lattice. Output
-      is in reduced units (U/epsilon).
-	Returns:
-	  enall (float) = reduced energy of lattice.
-    """
+
     enall = 0.0
     for i in range(nmax):
         for j in range(nmax):
@@ -180,17 +165,7 @@ def all_energy(arr,nmax):
     return enall
 #=======================================================================
 def get_order(arr,nmax):
-    """
-    Arguments:
-	  arr (float(nmax,nmax)) = array that contains lattice data;
-      nmax (int) = side length of square lattice.
-    Description:
-      Function to calculate the order parameter of a lattice
-      using the Q tensor approach, as in equation (3) of the
-      project notes.  Function returns S_lattice = max(eigenvalues(Q_ab)).
-	Returns:
-	  max(eigenvalues(Qab)) (float) = order parameter for lattice.
-    """
+
     Qab = np.zeros((3,3))
     delta = np.eye(3,3)
     #
@@ -198,7 +173,6 @@ def get_order(arr,nmax):
     # put it in a (3,i,j) array.
     #
     lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax) # x, y, z在這邊計算了
-    # z 都設0所以只跑a,b 兩個
     for a in range(3):
         for b in range(3):
             for i in range(nmax):
@@ -206,24 +180,10 @@ def get_order(arr,nmax):
                     Qab[a,b] += 3*lab[a,i,j]*lab[b,i,j] - delta[a,b]
     Qab = Qab/(2*nmax*nmax)
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
-    return eigenvalues.max() # 取最大eigenvalues
+    return eigenvalues.max() 
 #=======================================================================
-def MC_step(arr,Ts,nmax): #一次 mc step 代表 轉東一個分子看全部會如何
-    """
-    Arguments:
-	  arr (float(nmax,nmax)) = array that contains lattice data;
-	  Ts (float) = reduced temperature (range 0 to 2);#溫度範圍0~2
-      nmax (int) = side length of square lattice.
-    Description:
-      Function to perform one MC step, which consists of an average
-      of 1 attempted change per lattice site.  Working with reduced
-      temperature Ts = kT/epsilon.  Function returns the acceptance
-      ratio for information.  This is the fraction of attempted changes
-      that are successful.  Generally aim to keep this around 0.5 for
-      efficient simulation.
-	Returns:
-	  accept/(nmax**2) (float) = acceptance ratio for current MCS.
-    """
+def MC_step(arr,Ts,nmax): 
+
     #
     # Pre-compute some random numbers.  This is faster than
     # using lots of individual calls.  "scale" sets the width
@@ -255,26 +215,12 @@ def MC_step(arr,Ts,nmax): #一次 mc step 代表 轉東一個分子看全部會�
                     arr[ix,iy] -= ang
     return accept/(nmax*nmax)
 #=======================================================================
-def main(program, nsteps, nmax, temp, pflag): # 第一處理function
-    """
-    Arguments:
-	  program (string) = the name of the program;
-	  nsteps (int) = number of Monte Carlo steps (MCS) to perform;
-      nmax (int) = side length of square lattice to simulate;
-	  temp (float) = reduced temperature (range 0 to 2);
-	  pflag (int) = a flag to control plotting.
-    Description:
-      This is the main function running the Lebwohl-Lasher simulation.
-    Returns:
-      NULL
-    """
-    # Create and initialise lattice
+def main(program, nsteps, nmax, temp, pflag): 
+
     lattice = initdat(nmax)
     # Plot initial frame of lattice
-    #這邊已更改
-    if rank == 0:
-        plotdat(lattice,pflag,nmax)
-    # Create arrays to store energy, acceptance ratio and order parameter
+    plotdat(lattice,pflag,nmax)
+
     energy = np.zeros(nsteps+1,dtype=float)
     ratio = np.zeros(nsteps+1,dtype=float)
     order = np.zeros(nsteps+1,dtype=float)
@@ -291,9 +237,11 @@ def main(program, nsteps, nmax, temp, pflag): # 第一處理function
         order[it] = get_order(lattice,nmax)
     final = time.time()
     runtime = final-initial
-    
+
     # Final outputs
     print("{}: Size: {:d}, Steps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Time: {:8.6f} s".format(program, nmax,nsteps,temp,order[nsteps-1],runtime))
+    savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
+    plotdat(lattice,pflag,nmax)
     final_pkg ={
         'lattice':lattice,
         'nsteps':nsteps,
@@ -306,9 +254,9 @@ def main(program, nsteps, nmax, temp, pflag): # 第一處理function
         'pflag':pflag
     }
     return final_pkg
-    #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
+
     #return lattice,nsteps,temp,runtime,ratio,energy,order,nmax
-    #plotdat(lattice,pflag,nmax)
+
 #=======================================================================
 # Main part of program, getting command line arguments and calling
 # main simulation function.
@@ -324,26 +272,40 @@ if __name__ == '__main__':
         SIZE = int(sys.argv[2])
         TEMPERATURE = float(sys.argv[3])
         PLOTFLAG = int(sys.argv[4])
-        
-        np.random.seed(rank + 42)
-     
 
-        final_pkg = main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG)
+
+        temps = np.linspace(0.1, TEMPERATURE, size)
+        local_temp = temps[rank]
+
+
+
+        final_pkg = main(PROGNAME, ITERATIONS, SIZE, local_temp, PLOTFLAG)
         all_results = comm.gather(final_pkg, root=0)
 
 
         if rank == 0:
-                best_index = np.argmin([res['energy'][-1] for res in all_results])
-                winner = all_results[best_index]
-                best_energy = winner['energy'][-1]
+            summary = []
+            for i, res in enumerate(all_results):
+                summary.append({
+                    'Rank':i,
+                    'Temperature': res['temp'],
+                    'Average_order': np.mean(res['order']),
+                    'Average_energy':np.mean(res['energy']),
+                    'Ratio': res['ratio'][-1],
+                    'Runtime':res['runtime']
+                })
 
-                print(f"Rank{best_index} has lowest energy:{best_energy}")
+                df_summary = pd.DataFrame(summary)
+                df_summary = df_summary.sort_values(by='Temperature')
 
-                plotdat(winner['lattice'],winner['pflag'],winner['nmax'])
-                savedat(winner['lattice'],winner['nsteps'],winner['temp'],winner['runtime'],winner['ratio'],winner['energy'],winner['order'],winner['nmax'])
-
+                df_summary.to_csv('simulation_summary(temp).csv', index=False)
+                plt.subplots(figsize=(8,6))
+                plt.plot(df_summary['Temperature'], df_summary['Average_order'], '-.')
+                plt.title('Orders vs. Temperature')
+                plt.xlabel('Temperature (T*)')
+                plt.ylabel('Order Parameter (S)')
+                plt.grid(True)
+                plt.savefig('order_vs_temp.png')
 else:
     print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))
 #=======================================================================
-
-

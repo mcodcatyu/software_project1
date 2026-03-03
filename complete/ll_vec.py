@@ -1,4 +1,9 @@
 """
+This file uses numpy vetorization. Function-> energy_calculation is added to accelerate function->plotdat
+Also, vetorized function get_order 
+"""
+#=======================================================================
+"""
 Basic Python Lebwohl-Lasher code.  Based on the paper 
 P.A. Lebwohl and G. Lasher, Phys. Rev. A, 6, 426-429 (1972).
 This version in 2D.
