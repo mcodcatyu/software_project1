@@ -8,11 +8,11 @@ For Cython files:
 
             python setup_cython.py build_ext -fi
             python run_cython.py <filename> <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>
-            
+
     2. LLcython_pra.pyx:
 
-        python setup_cython.py build_ext -fi
-        python run_pra.py <filename> <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG><THREAD>
+            python setup_cython.py build_ext -fi
+            python run_pra.py <filename> <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG><THREAD>
 
 Run mpi4py files at the command line by typing:
 
