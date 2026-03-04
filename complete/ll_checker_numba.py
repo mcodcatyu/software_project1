@@ -217,7 +217,7 @@ def checkerboard(arr, Ts, nmax, offset):
     accept = 0
     scale=0.1+Ts
     for i in prange(nmax):
-        start_j = (i+offset)%2
+        start_j = (i+offset)%2 # onlt do white or black
         for j in range (start_j, nmax, 2):
           aran = np.random.normal(0.0,scale)
           #  consider the boundry situation, n means reandom number

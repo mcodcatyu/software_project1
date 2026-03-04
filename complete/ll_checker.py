@@ -94,6 +94,17 @@ def plotdat(arr,pflag,nmax):
     plt.show()
 #=======================================================================
 def energy_calculation(arr):
+    """
+    Arguments:
+	    arr (float(nmax,nmax)) = array that contains lattice data;
+    Description:
+      Function that computes the energy of a single cell of the
+      lattice taking into account periodic boundaries.  Working with
+      reduced energy (U/epsilon), equivalent to setting epsilon=1 in
+      equation (1) in the project notes.
+	  Returns:
+	  en (float) = sum of reduced energy of cell.
+    """
     en = 0.0
     neighbours = {
         "up" : np.roll(arr, shift=1, axis=0),
@@ -146,6 +157,18 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
     FileOut.close()
 #=======================================================================
 def one_energy(arr, mask):
+    """
+    Arguments:
+	    arr (float(nmax,nmax)) = array that contains lattice data;
+      mask (ndarray) = contain boolean values of mask
+    Description:
+      Function that computes the energy of a single cell of the
+      lattice taking into account periodic boundaries.  Working with
+      reduced energy (U/epsilon), equivalent to setting epsilon=1 in
+      equation (1) in the project notes.
+	Returns:
+	  en (float) = reduced energy of cell.
+    """
     neighbours = {
         "up" : np.roll(arr, shift=1, axis=0),
         "down" : np.roll(arr, shift=-1, axis = 0),
@@ -221,14 +244,14 @@ def MC_step(arr,Ts,nmax):
     aran = np.random.normal(scale=scale, size=(nmax,nmax))
 
     checkerboard = np.indices((nmax,nmax)).sum(axis=0) % 2 # obtain checkerboard nd.array
-    white_mask = checkerboard == 0
-    black_mask = np.invert(white_mask)
+    white_mask = checkerboard == 0 # creat mask
+    black_mask = np.invert(white_mask) # anti-white
 
     for mask in ([white_mask, black_mask]):
         old_values = arr[mask] # stores old lattice values
-        en0 = one_energy(arr, mask)
-        new_lattice  = old_values+ aran[mask]
-        arr[mask] = new_lattice 
+        en0 = one_energy(arr, mask) # stores old energy value
+        new_lattice  = old_values+ aran[mask] 
+        arr[mask] = new_lattice # update point
         en1 = one_energy(arr, mask)
 
         delta_en = en1-en0
