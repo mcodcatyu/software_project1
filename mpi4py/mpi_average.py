@@ -2,6 +2,7 @@
 """
 This file parallelize the task, each rank runs their simulation independently, and average 
 the value to obtain a more robust estimate result.   
+The primary modification were made at main()
 """
 #======================================================================= 
 
@@ -137,6 +138,20 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
     FileOut.close()
 #=======================================================================
 def one_energy(arr,ix,iy,nmax):
+    """
+    Arguments:
+        arr (float(nmax,nmax)) = array that contains lattice data;
+        ix (int) = x lattice coordinate of cell;
+        iy (int) = y lattice coordinate of cell;
+        nmax (int) = side length of square lattice.
+        Description:
+        Function that computes the energy of a single cell of the
+        lattice taking into account periodic boundaries.  Working with
+        reduced energy (U/epsilon), equivalent to setting epsilon=1 in
+        equation (1) in the project notes.
+    Returns:
+        en (float) = reduced energy of cell.
+    """
 
     en = 0.0
     ixp = (ix+1)%nmax # These are the coordinates
@@ -203,8 +218,6 @@ def MC_step(arr,Ts,nmax):
             if en1<=en0:
                 accept += 1
             else:
-            # Now apply the Monte Carlo test - compare
-            # exp( -(E_new - E_old) / T* ) >= rand(0,1)
                 boltz = np.exp( -(en1 - en0) / Ts )
 
                 if boltz >= np.random.uniform(0.0,1.0):
@@ -263,6 +276,7 @@ def main(program, nsteps, nmax, temp, pflag):
 # main simulation function.
 #
 if __name__ == '__main__':
+    # mpi4py
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -275,13 +289,14 @@ if __name__ == '__main__':
         PLOTFLAG = int(sys.argv[4])
 
         final_pkg = main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG)
-        all_results = comm.gather(final_pkg, root=0)
+        all_results = comm.gather(final_pkg, root=0) # gather information
         if rank == 0:
                 energies = [data['energy'] for data in all_results]
-                avg_energy = np.mean(energies)
+                avg_energy = np.mean(energies) # calculate average energy value
                 orders = [data['order'] for data in all_results]
-                avg_order = np.mean(orders)
+                avg_order = np.mean(orders)# calculate average energy value
                 summary = []
+                # obtain the infomation from every rank
                 for i, res in enumerate(all_results):
                     summary.append({
                         'Rank':i,
@@ -293,9 +308,9 @@ if __name__ == '__main__':
                     })
 
                 df_summary = pd.DataFrame(summary)
-                df_summary = df_summary.sort_values(by='Temperature')
+                df_summary = df_summary.sort_values(by='Temperature') # order by temperature
 
-                df_summary.to_csv('Average eng and order.csv', index=False)
+                df_summary.to_csv('Average eng and order.csv', index=False)#produce csv file
 
                 print(f"The Average energy is :{avg_energy}, The Average order is: {avg_order}")
         
