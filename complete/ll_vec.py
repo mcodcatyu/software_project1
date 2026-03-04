@@ -1,6 +1,5 @@
 """
-This file uses numpy vetorization. Function-> energy_calculation is added to accelerate function->plotdat
-Also, vetorized function get_order 
+Primary vectorized get_order() and add energy_calculation() to accelerate plotdat()
 """
 #=======================================================================
 """
@@ -85,9 +84,9 @@ def plotdat(arr,pflag,nmax):
         mpl.rc('image', cmap='gist_gray')
         cols = np.zeros_like(arr) # create a sane number all zero arry
         norm = plt.Normalize(vmin=0, vmax=1)
-    quiveropts = dict(headlength=0,pivot='middle',headwidth=1,scale=1.1*nmax) # 分子的火財棒圖樣設定
+    quiveropts = dict(headlength=0,pivot='middle',headwidth=1,scale=1.1*nmax) 
     fig, ax = plt.subplots()
-    q = ax.quiver(x, y, u, v, cols,norm=norm, **quiveropts) # col被當作顏色使用了
+    q = ax.quiver(x, y, u, v, cols,norm=norm, **quiveropts)
     ax.set_aspect('equal')
     plt.show()
 #=======================================================================

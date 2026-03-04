@@ -1,6 +1,6 @@
 #=======================================================================
 """
-This is the original code file
+This is use the mask method to do the checkerboard.
 """
 #=======================================================================
 """
@@ -85,13 +85,13 @@ def plotdat(arr,pflag,nmax):
         mpl.rc('image', cmap='gist_gray')
         cols = np.zeros_like(arr) # create a sane number all zero arry
         norm = plt.Normalize(vmin=0, vmax=1)
-    quiveropts = dict(headlength=0,pivot='middle',headwidth=1,scale=1.1*nmax) # 分子的火財棒圖樣設定
+    quiveropts = dict(headlength=0,pivot='middle',headwidth=1,scale=1.1*nmax) 
     fig, ax = plt.subplots()
-    q = ax.quiver(x, y, u, v, cols,norm=norm, **quiveropts) # col被當作顏色使用了
+    q = ax.quiver(x, y, u, v, cols,norm=norm, **quiveropts) 
     ax.set_aspect('equal')
-    current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
-    plt.savefig(f'my_lattice_plot_{current_datetime}.png')
-    #plt.show()
+    #current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
+    #plt.savefig(f'my_lattice_plot_{current_datetime}.png')
+    plt.show()
 #=======================================================================
 def energy_calculation(arr):
     en = 0.0

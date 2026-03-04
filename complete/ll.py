@@ -101,7 +101,7 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
 	  energy (float(nsteps)) = array of reduced energies per MCS;
 	  order (float(nsteps)) = array of order parameters per MCS;
       nmax (int) = side length of square lattice to simulated.
-    Description: #存最終展示的txt的那個表的資料
+    Description: 
       Function to save the energy, order and acceptance ratio
       per Monte Carlo step to text file.  Also saves run data in the
       header.  Filenames are generated automatically based on
@@ -147,11 +147,10 @@ def one_energy(arr,ix,iy,nmax):
     ixp = (ix+1)%nmax # These are the coordinates
     ixm = (ix-1)%nmax # of the neighbours
     iyp = (iy+1)%nmax # with wraparound
-    iym = (iy-1)%nmax # 四個鄰居
+    iym = (iy-1)%nmax # 
 #
 # Add together the 4 neighbour contributions
 # to the energy
-# 算角度先，然後再依照公式計算en，每個都算一遍
     ang = arr[ix,iy]-arr[ixp,iy]
     en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
     ang = arr[ix,iy]-arr[ixm,iy]
@@ -212,7 +211,7 @@ def MC_step(arr,Ts,nmax):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
-	  Ts (float) = reduced temperature (range 0 to 2);#溫度範圍0~2
+	  Ts (float) = reduced temperature (range 0 to 2);
       nmax (int) = side length of square lattice.
     Description:
       Function to perform one MC step, which consists of an average
@@ -295,7 +294,7 @@ def main(program, nsteps, nmax, temp, pflag):
     # Plot final frame of lattice and generate output file
     savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     plotdat(lattice,pflag,nmax)
-    return energy, order
+    return np.mean(energy), np.mean(order)
 #=======================================================================
 # Main part of program, getting command line arguments and calling
 # main simulation function.

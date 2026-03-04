@@ -1,4 +1,8 @@
 """
+Primary used ll_vec.py file but add numba
+(vectorized get_order() and add energy_calculation() to accelerate plotdat())
+"""
+"""
 Basic Python Lebwohl-Lasher code.  Based on the paper 
 P.A. Lebwohl and G. Lasher, Phys. Rev. A, 6, 426-429 (1972).
 This version in 2D.
@@ -71,7 +75,6 @@ def plotdat(arr,pflag,nmax):
     if pflag==1: # colour the arrows according to energy
         mpl.rc('image', cmap='rainbow')
         cols= energy_calculation(arr) # obtain an array including all particle energy(nmax*nmax)
-        #存完nmax * nmax個分子能量
         norm = plt.Normalize(cols.min(), cols.max())
     elif pflag==2: # colour the arrows according to angle
         mpl.rc('image', cmap='hsv')
@@ -81,9 +84,9 @@ def plotdat(arr,pflag,nmax):
         mpl.rc('image', cmap='gist_gray')
         cols = np.zeros_like(arr) # create a sane number all zero arry
         norm = plt.Normalize(vmin=0, vmax=1)
-    quiveropts = dict(headlength=0,pivot='middle',headwidth=1,scale=1.1*nmax) # 分子的火財棒圖樣設定
+    quiveropts = dict(headlength=0,pivot='middle',headwidth=1,scale=1.1*nmax)
     fig, ax = plt.subplots()
-    q = ax.quiver(x, y, u, v, cols,norm=norm, **quiveropts) # col被當作顏色使用了
+    q = ax.quiver(x, y, u, v, cols,norm=norm, **quiveropts) 
     ax.set_aspect('equal')
     #current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
     #plt.savefig(f'my_lattice_plot_{current_datetime}.png')
@@ -208,7 +211,7 @@ def get_order(arr,nmax):
     # Generate a 3D unit vector for each cell (i,j) and
     # put it in a (3,i,j) array.
     #
-    lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax) # x, y, z在這邊計算了
+    lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax)
     Qab = 3 * np.einsum('aij, bij -> ab', lab, lab)- (nmax**2)*delta # using einsum, delta is sibtracted nmax**2 times
     Qab = Qab/(2*nmax*nmax)
     eigenvalues,eigenvectors = np.linalg.eig(Qab)

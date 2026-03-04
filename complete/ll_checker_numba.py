@@ -1,4 +1,7 @@
 """
+This file use the checkerboard method with numba.
+"""
+"""
 Basic Python Lebwohl-Lasher code.  Based on the paper 
 P.A. Lebwohl and G. Lasher, Phys. Rev. A, 6, 426-429 (1972).
 This version in 2D.
@@ -81,13 +84,13 @@ def plotdat(arr,pflag,nmax):
         mpl.rc('image', cmap='gist_gray')
         cols = np.zeros_like(arr) # create a sane number all zero arry
         norm = plt.Normalize(vmin=0, vmax=1)
-    quiveropts = dict(headlength=0,pivot='middle',headwidth=1,scale=1.1*nmax) # 分子的火財棒圖樣設定
+    quiveropts = dict(headlength=0,pivot='middle',headwidth=1,scale=1.1*nmax) 
     fig, ax = plt.subplots()
     q = ax.quiver(x, y, u, v, cols,norm=norm, **quiveropts) 
     ax.set_aspect('equal')
-    current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
-    plt.savefig(f'my_lattice_plot_{current_datetime}.png')
-    #plt.show()
+    #current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
+    #plt.savefig(f'my_lattice_plot_{current_datetime}.png')
+    plt.show()
 #=======================================================================
 
 #=======================================================================
@@ -135,10 +138,15 @@ def energy_calculation(arr,nmax):
     en = 0.0
     for i in prange(x):
       for j in range(y):
-        up = arr[(i+1)%nmax ,j]
-        down = arr[(i-1)%nmax,j]
-        left = arr[i,(j+1)%nmax]
-        right = arr[i,(j-1)%nmax]
+        ixm = (i-1) if i > 0 else nmax -1 # first (0,n) ->up point -> (nmax-1, n)
+        ixp = (i+1) if i< nmax -1 else 0 # last point (nmax-1, n) -> down -> (0, n)
+        iym = (j-1) if j >0 else nmax -1 # left point (n, 0) -> left -> (n, nmax-1)
+        iyp = (j+1) if j < nmax-1 else 0 
+        up = arr[ixm,j]
+        down = arr[ixp,j]
+        left = arr[i,iym]
+        right = arr[i,iyp]
+        
         en = 0
         for neighbour in (up, down, left, right):
           en += 0.5*(1.0 - 3.0*np.cos(arr[i,j]- neighbour)**2)
@@ -198,32 +206,34 @@ def MC_step(arr,Ts,nmax):
     # using lots of individual calls.  "scale" sets the width
     # of the distribution for the angle changes - increases
     # with temperature.
-    scale=0.1+Ts
+
     total_accept = 0
-    aran = np.random.normal(scale=scale, size=(nmax,nmax))
-    total_accept = checkerboard(arr, aran, Ts, nmax, 0) +  checkerboard(arr, aran, Ts, nmax, 1)
+    total_accept = checkerboard(arr, Ts, nmax, 0) +  checkerboard(arr, Ts, nmax, 1)
 
     return total_accept/(nmax*nmax)
 
-@njit(parallel = True)
-def checkerboard(arr, aran, Ts, nmax, offset):
+@njit(parallel = True, fastmath=True)
+def checkerboard(arr, Ts, nmax, offset):
     accept = 0
+    scale=0.1+Ts
     for i in prange(nmax):
         start_j = (i+offset)%2
         for j in range (start_j, nmax, 2):
+          aran = np.random.normal(0.0,scale)
+          #  consider the boundry situation, n means reandom number
+          ixm = (i-1) if i > 0 else nmax -1 # first (0,n) ->up point -> (nmax-1, n)
+          ixp = (i+1) if i< nmax -1 else 0 # last point (nmax-1, n) -> down -> (0, n)
+          iym = (j-1) if j >0 else nmax -1 # left point (n, 0) -> left -> (n, nmax-1)
+          iyp = (j+1) if j < nmax-1 else 0 # right point (n, nmax-1) -> (n, 0)
 
-          ixp = (i+1)%nmax # These are the coordinates
-          ixm = (i-1)%nmax # of the neighbours
-          iyp = (j+1)%nmax # with wraparound
-          iym = (j-1)%nmax # 
-          up = arr[ixp,j]
-          down = arr[ixm,j]
-          left = arr[i,iyp]
-          right = arr[i,iym]
+          up = arr[ixm,j]
+          down = arr[ixp,j]
+          left = arr[i,iym]
+          right = arr[i,iyp]
           en0 = 0
           for neighbour in (up, down, left, right):
               en0 += 0.5*(1.0 - 3.0*np.cos(arr[i,j]- neighbour)**2)
-          arr[i,j] = arr[i,j] + aran[i,j]
+          arr[i,j] = arr[i,j] + aran
 
           en1 = 0
           for neighbour in (up, down, left, right):
@@ -239,8 +249,9 @@ def checkerboard(arr, aran, Ts, nmax, offset):
             if boltz >= np.random.uniform(0.0,1.0):
                 accept += 1
             else:
-                arr[i,j] -= aran[i,j]
+                arr[i,j] -= aran
     return accept
+
 #=======================================================================
 def main(program, nsteps, nmax, temp, pflag): 
     """
@@ -260,16 +271,16 @@ def main(program, nsteps, nmax, temp, pflag):
     # Plot initial frame of lattice
     plotdat(lattice,pflag,nmax)
     # Create arrays to store energy, acceptance ratio and order parameter
-    energy = np.zeros(nsteps+1,dtype=float)
-    ratio = np.zeros(nsteps+1,dtype=float)
-    order = np.zeros(nsteps+1,dtype=float)
+    energy = np.zeros(nsteps+1,dtype=np.float32)
+    ratio = np.zeros(nsteps+1,dtype=np.float32)
+    order = np.zeros(nsteps+1,dtype=np.float32)
     # Set initial values in arrays 
     energy[0] = np.sum(energy_calculation(lattice, nmax))
     ratio[0] = 0.5 # ideal value
     order[0] = get_order(lattice,nmax)
     # Begin doing and timing some MC steps.
     initial = time.time()
-    for it in range(1,nsteps+1):
+    for it in prange(1,nsteps+1):
         ratio[it] = MC_step(lattice,temp,nmax)
         energy[it] = np.sum(energy_calculation(lattice, nmax))
         order[it] = get_order(lattice,nmax)
