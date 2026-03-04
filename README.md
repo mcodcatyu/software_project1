@@ -1,11 +1,15 @@
 Please view the complete folder and mpi4py file in mpi4py folder
 Run Cython files at the command line by typing:
+
     python setup_cython.py build_ext -fi
+    
 For Cython files:
     1. LLcython.pyx:
-        python setup_cython.py build_ext -fi
-        python run_cython.py <filename> <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>
+
+            python setup_cython.py build_ext -fi
+            python run_cython.py <filename> <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>
     2. LLcython_pra.pyx:
+
         python setup_cython.py build_ext -fi
         python run_pra.py <filename> <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG><THREAD>
 
